@@ -101,7 +101,9 @@ class CUDADevice(Compiled):
     device_id = int(device.split(":")[1]) if ":" in device else 0
     check(cuda.cuInit(0))
     self.cu_device = init_c_var(cuda.CUdevice(), lambda x: check(cuda.cuDeviceGet(ctypes.byref(x), device_id)))
-    self.context = init_c_var(cuda.CUcontext(), lambda x: check(cuda.cuCtxCreate_v2(ctypes.byref(x), 0, self.cu_device)))
+    # Use primary context for interoperability with CUDA runtime API (e.g. NCCL, cuDNN)
+    self.context = init_c_var(cuda.CUcontext(), lambda x: check(cuda.cuDevicePrimaryCtxRetain(ctypes.byref(x), self.cu_device)))
+    check(cuda.cuCtxSetCurrent(self.context))
     check(cuda.cuDeviceComputeCapability(ctypes.byref(major := ctypes.c_int()), ctypes.byref(minor := ctypes.c_int()), device_id))
 
     for dev in CUDADevice.devices:
